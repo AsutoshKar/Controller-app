@@ -1,0 +1,3 @@
+// Application-level settings for the Runner target.
+PRODUCT_NAME = WolveBot
+PRODUCT_BUNDLE_IDENTIFIER = com.teamwolves.wolvebot

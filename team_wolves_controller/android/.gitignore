@@ -1,0 +1,10 @@
+# Android / Gradle
+gradle-wrapper.jar
+.gradle/
+build/
+local.properties
+*.iml
+.cxx/
+captures/
+.externalNativeBuild/
+.cxx

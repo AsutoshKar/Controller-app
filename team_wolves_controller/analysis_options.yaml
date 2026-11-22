@@ -1,0 +1,13 @@
+# Standard Flutter lint set. Kept deliberately close to the framework default
+# so `flutter analyze` reports the project's real issues, not a custom rule set.
+include: package:flutter_lints/flutter.yaml
+
+analyzer:
+  errors:
+    # Test seams must never leak into production code.
+    invalid_use_of_visible_for_testing_member: error
+
+linter:
+  rules:
+    - prefer_single_quotes
+    - unnecessary_this
