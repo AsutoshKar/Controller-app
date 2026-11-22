@@ -158,7 +158,7 @@ class UdpTransport extends RobotTransport {
     }
     // Read events are level-triggered: drain every datagram that is already
     // buffered, because a single event can cover several packets at 100 Hz.
-    if (event == RawSocketEvent.read || event == RawSocketEvent.readWrite) {
+    if (event == RawSocketEvent.read) {
       while (true) {
         final Datagram? datagram = socket.receive();
         if (datagram == null) {

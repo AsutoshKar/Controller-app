@@ -165,6 +165,11 @@ class BleTransport extends RobotTransport {
     await connect();
   }
 
+  /// Selects a device before [connect] is called by DriveController.
+  void selectDevice(String deviceId) {
+    _device = BluetoothDevice.fromId(deviceId);
+  }
+
   /// Connects to a device previously surfaced by [scanResults].
   @override
   Future<void> connect() async {
@@ -292,8 +297,6 @@ class BleTransport extends RobotTransport {
         return 'PERMISSION DENIED';
       case BluetoothAdapterState.unavailable:
         return 'UNAVAILABLE';
-      case BluetoothAdapterState.unsupported:
-        return 'UNSUPPORTED';
       case BluetoothAdapterState.turningOn:
       case BluetoothAdapterState.on:
       case BluetoothAdapterState.unknown:

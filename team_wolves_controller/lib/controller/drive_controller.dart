@@ -500,7 +500,7 @@ class DriveController extends ChangeNotifier implements TransportListener {
     }
     _profile = profile;
     _haptic(HapticPulse.light);
-    _notice = '${profile.label} PROFILE - M$requestMode';
+    _notice = '${profile.label} PROFILE - M$requestedMode';
     notifyListeners();
   }
 
@@ -510,7 +510,7 @@ class DriveController extends ChangeNotifier implements TransportListener {
     }
     _preset = preset;
     _haptic(HapticPulse.light);
-    _notice = '${profile.label} ${preset.label} - M$requestMode';
+    _notice = '${profile.label} ${preset.label} - M$requestedMode';
     notifyListeners();
   }
 
@@ -823,7 +823,9 @@ class DriveController extends ChangeNotifier implements TransportListener {
     } else {
       command = _shaper.shape(
         throttle: _throttle,
-        steering: _steering,
+        // The chassis/motor orientation is mirrored relative to the UI axis:
+        // invert the horizontal stick so left input produces a left turn.
+        steering: -_steering,
         pivot: _pivotHeld,
         boost: _boostHeld,
         tuning: _tuning,

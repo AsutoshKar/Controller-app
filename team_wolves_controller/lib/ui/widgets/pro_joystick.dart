@@ -1,8 +1,8 @@
 import 'dart:math' as math;
 
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 
-import '../controller/drive_shaper.dart';
+import '../../controller/drive_shaper.dart';
 import 'hud_widgets.dart';
 
 /// A single-axis raw stick.
@@ -313,7 +313,9 @@ class _HoldPaddleState extends State<HoldPaddle> {
       },
       child: AnimatedContainer(
         duration: const Duration(milliseconds: 60),
-        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
+        // This control is only 34 px tall on the landscape console. Keep its
+        // vertical padding small enough for the label and subtitle to fit.
+        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 1),
         decoration: BoxDecoration(
           borderRadius: BorderRadius.circular(6),
           color: widget.active

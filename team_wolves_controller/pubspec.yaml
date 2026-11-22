@@ -17,6 +17,7 @@ dependencies:
   # The only approved third-party runtime dependency.
   flutter_blue_plus: ^1.32.12
 
+  material_ui: any
 dev_dependencies:
   flutter_test:
     sdk: flutter

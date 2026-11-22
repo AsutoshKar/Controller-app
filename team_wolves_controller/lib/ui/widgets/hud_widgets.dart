@@ -1,6 +1,6 @@
 import 'dart:math' as math;
 
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 
 /// Shared palette. Cyan/teal is primary and speed, amber is torque/boost/
 /// warning, green is confirmed armed/live, red is E-STOP and loss. Colour is
@@ -60,11 +60,11 @@ class _TacticalBackgroundPainter extends CustomPainter {
     final Rect rect = Offset.zero & size;
 
     final Paint base = Paint()
-      ..shader = RadialGradient(
-        center: const Alignment(0.5, -0.35),
+      ..shader = const RadialGradient(
+        center: Alignment(0.5, -0.35),
         radius: 1.35,
-        colors: const <Color>[Color(0xFF0C181D), Color(0xFF05080A)],
-        stops: const <double>[0.0, 1.0],
+        colors: <Color>[Color(0xFF0C181D), Color(0xFF05080A)],
+        stops: <double>[0.0, 1.0],
       ).createShader(rect);
     canvas.drawRect(rect, base);
 
@@ -275,7 +275,7 @@ class SegmentedButtons<T> extends StatelessWidget {
       height: height,
       child: Row(
         children: <Widget>[
-          for (int i = 0; i < options.length; i++) <Widget>[
+          for (int i = 0; i < options.length; i++) ...<Widget>[
             if (i > 0) const SizedBox(width: 4),
             Expanded(
               child: _Segment(
@@ -547,7 +547,7 @@ class ToggleRow extends StatelessWidget {
               ),
             ),
       value: value,
-      activeColor: TacticalColors.primary,
+      activeThumbColor: TacticalColors.primary,
       onChanged: onChanged,
     );
   }

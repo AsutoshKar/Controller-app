@@ -47,3 +47,5 @@ ios/Runner.xcodeproj/xcshareddata/xcschemes/*.xcscheme.bak
 # Logs and coverage
 *.log
 coverage/
+# Widget Preview related
+.widget_preview/
