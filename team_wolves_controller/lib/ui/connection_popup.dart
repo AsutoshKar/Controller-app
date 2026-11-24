@@ -176,8 +176,8 @@ class _ConnectionPopupState extends State<ConnectionPopup> {
                     badge: 'PRIMARY',
                     badgeColor: TacticalColors.primary,
                     active: udpActive,
-                    detail: 'SSID ROBORACE_ESP32  ·  192.168.4.1:4210\n'
-                        'Password race2025  ·  channel 1',
+                    detail: 'SSID ROBO_BOT  ·  192.168.4.1:4210\n'
+                        'Password wolves2026  ·  channel 1',
                     hint: 'Join the robot AP in the phone Wi-Fi settings. '
                         'Choose "Stay connected without internet" on Android.',
                     onPrimary: udpActive ? null : _connectUdp,
@@ -199,7 +199,7 @@ class _ConnectionPopupState extends State<ConnectionPopup> {
                     badge: 'BACKUP',
                     badgeColor: TacticalColors.amber,
                     active: bleActive,
-                    detail: 'Device ROBORACE_ESP32  ·  manual fallback only\n'
+                    detail: 'Device ROBO_BOT  ·  manual fallback only\n'
                         'Service 0000abcd-...-00805f9b34fb',
                     hint: 'No automatic failover. Switching closes the UDP '
                         'link and requires a new arm.',
@@ -221,17 +221,14 @@ class _ConnectionPopupState extends State<ConnectionPopup> {
                     const SectionLabel('DISCOVERED PERIPHERALS'),
                     const SizedBox(height: 4),
                     Container(
-                      constraints: const BoxConstraints(maxHeight: 130),
                       decoration: BoxDecoration(
                         color: TacticalColors.background.withA(0.5),
                         borderRadius: BorderRadius.circular(4),
                         border: Border.all(color: TacticalColors.line),
                       ),
-                      child: ListView.builder(
-                        shrinkWrap: true,
-                        itemCount: _hits.length,
-                        itemBuilder: (BuildContext context, int index) {
-                          final BleScanHit hit = _hits[index];
+                      child: Column(
+                        mainAxisSize: MainAxisSize.min,
+                        children: _hits.map((BleScanHit hit) {
                           return ListTile(
                             dense: true,
                             visualDensity: VisualDensity.compact,
@@ -264,7 +261,7 @@ class _ConnectionPopupState extends State<ConnectionPopup> {
                               child: const Text('CONNECT'),
                             ),
                           );
-                        },
+                        }).toList(growable: false),
                       ),
                     ),
                   ],

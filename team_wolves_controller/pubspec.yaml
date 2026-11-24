@@ -25,7 +25,5 @@ dev_dependencies:
 
 flutter:
   uses-material-design: true
-  # No assets are declared on purpose: the wolf emblem is a vector CustomPaint,
-  # so the first run needs no asset file. When a bitmap logo is approved, add:
-  #   assets:
-  #     - assets/wolve_logo.png
+  assets:
+    - assets/images/team_wolves_logo.png

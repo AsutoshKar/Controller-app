@@ -75,16 +75,12 @@ class _SplashScreenState extends State<SplashScreen>
                     return Column(
                       mainAxisSize: MainAxisSize.min,
                       children: <Widget>[
-                        const WolfEmblem(size: 96),
-                        const SizedBox(height: 14),
-                        const Text(
-                          'TEAM WOLVES',
-                          style: TextStyle(
-                            color: TacticalColors.text,
-                            fontSize: 28,
-                            letterSpacing: 8,
-                            fontWeight: FontWeight.w900,
-                          ),
+                        Image.asset(
+                          'assets/images/team_wolves_logo.png',
+                          width: 180,
+                          height: 180,
+                          fit: BoxFit.contain,
+                          filterQuality: FilterQuality.high,
                         ),
                         const SizedBox(height: 4),
                         const Text(

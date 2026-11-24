@@ -1,6 +1,6 @@
 /*
  * Wolve Bot ESP32 UDP receiver for team_wolves_controller.
- * Target: classic ESP32 Dev Module, Arduino-ESP32 core 3.x.
+ * Target: classic ESP32 Dev Module, Arduino-ESP32 core 3.x or 4.x.
  *
  * Pin map transcribed from the supplied diagram:
  *   Right BTS7960: RPWM=GPIO25, LPWM=GPIO26
@@ -9,18 +9,32 @@
  *
  * Protocol matches lib/protocol/protocol.dart:
  * [A5 TYPE SEQ LEN PAYLOAD CRC8], CRC-8/0x07, init 0, no reflection.
- * This sketch implements Wi-Fi UDP only. It does not implement the app's BLE
- * fallback. Test with motor power disconnected and wheels raised first.
+ * Supports both Wi-Fi UDP and the app's custom BLE GATT fallback. Test with
+ * motor power disconnected and wheels raised first.
  */
 
 #include <Arduino.h>
+#include <esp_arduino_version.h>
 #include <WiFi.h>
 #include <WiFiUdp.h>
+#if ESP_ARDUINO_VERSION_MAJOR >= 4
+#include <BLE.h>
+#else
+#include <BLEDevice.h>
+#include <BLEServer.h>
+#include <BLEUtils.h>
+#include <BLE2902.h>
+#endif
+#include <string>
 
 // Match the README and connection dialog. Change these to match your setup.
-static const char *AP_SSID = "ROBORACE_ESP32";
-static const char *AP_PASSWORD = "race2025";
+static const char *AP_SSID = "ROBO_BOT";
+static const char *AP_PASSWORD = "wolves2026";
 static constexpr uint16_t UDP_PORT = 4210;
+static const char *BLE_DEVICE_NAME = "ROBO_BOT";
+static const char *BLE_SERVICE_UUID = "0000abcd-0000-1000-8000-00805f9b34fb";
+static const char *BLE_CONTROL_UUID = "0000ab01-0000-1000-8000-00805f9b34fb";
+static const char *BLE_TELEMETRY_UUID = "0000ab03-0000-1000-8000-00805f9b34fb";
 
 // BTS7960 inputs from the supplied connection diagram.
 static constexpr uint8_t RIGHT_RPWM = 25;
@@ -47,6 +61,11 @@ static constexpr uint16_t PWM_HZ = 20000;
 static constexpr uint8_t PWM_BITS = 8;
 
 WiFiUDP udp;
+#if ESP_ARDUINO_VERSION_MAJOR >= 4
+BLECharacteristic bleTelemetryCharacteristic;
+#else
+BLECharacteristic *bleTelemetryCharacteristic = nullptr;
+#endif
 IPAddress appAddress;
 uint16_t appPort = 0;
 bool haveApp = false;
@@ -78,8 +97,7 @@ int16_t readI16LE(const uint8_t *p) {
 }
 
 void writeFrame(uint8_t type, uint8_t sequence, const uint8_t *payload,
-                uint8_t length) {
-  if (!haveApp || appPort == 0) return;
+                uint8_t length, bool viaBle = false) {
   uint8_t frame[16];
   frame[0] = SOF;
   frame[1] = type;
@@ -87,12 +105,27 @@ void writeFrame(uint8_t type, uint8_t sequence, const uint8_t *payload,
   frame[3] = length;
   for (uint8_t i = 0; i < length; ++i) frame[4 + i] = payload[i];
   frame[4 + length] = crc8(&frame[1], 3 + length);
+  if (viaBle) {
+#if ESP_ARDUINO_VERSION_MAJOR >= 4
+    if (bleTelemetryCharacteristic) {
+      bleTelemetryCharacteristic.setValue(frame, 5 + length);
+      bleTelemetryCharacteristic.notify();
+    }
+#else
+    if (bleTelemetryCharacteristic != nullptr) {
+      bleTelemetryCharacteristic->setValue(frame, 5 + length);
+      bleTelemetryCharacteristic->notify();
+    }
+#endif
+    return;
+  }
+  if (!haveApp || appPort == 0) return;
   udp.beginPacket(appAddress, appPort);
   udp.write(frame, 5 + length);
   udp.endPacket();
 }
 
-void sendTelemetry(uint8_t sequence) {
+void sendTelemetry(uint8_t sequence, bool viaBle = false) {
   // Signed output values are encoded as int8, matching the Flutter decoder.
   const uint8_t payload[6] = {
       robotState,
@@ -102,7 +135,7 @@ void sendTelemetry(uint8_t sequence) {
       static_cast<uint8_t>(droppedFrames & 0xFF),
       static_cast<uint8_t>((droppedFrames >> 8) & 0xFF),
   };
-  writeFrame(TYPE_TELEMETRY, sequence, payload, sizeof(payload));
+  writeFrame(TYPE_TELEMETRY, sequence, payload, sizeof(payload), viaBle);
 }
 
 void setMotor(uint8_t rpwm, uint8_t lpwm, int16_t percent) {
@@ -149,7 +182,7 @@ uint8_t modeCapPercent() {
   return 65;
 }
 
-void handleFrame(const uint8_t *frame, size_t size) {
+void handleFrame(const uint8_t *frame, size_t size, bool viaBle = false) {
   if (size < 5 || frame[0] != SOF) {
     ++droppedFrames;
     return;
@@ -163,9 +196,11 @@ void handleFrame(const uint8_t *frame, size_t size) {
     return;
   }
 
-  appAddress = udp.remoteIP();
-  appPort = udp.remotePort();
-  haveApp = true;
+  if (!viaBle) {
+    appAddress = udp.remoteIP();
+    appPort = udp.remotePort();
+    haveApp = true;
+  }
   const uint8_t *payload = &frame[4];
 
   switch (type) {
@@ -204,7 +239,7 @@ void handleFrame(const uint8_t *frame, size_t size) {
         stopMotors();
       }
       updateState();
-      sendTelemetry(sequence);
+      sendTelemetry(sequence, viaBle);
       break;
     }
 
@@ -214,7 +249,7 @@ void handleFrame(const uint8_t *frame, size_t size) {
         return;
       }
       requestedMode = payload[0];
-      sendTelemetry(sequence);
+      sendTelemetry(sequence, viaBle);
       break;
 
     case TYPE_ARM:
@@ -233,7 +268,7 @@ void handleFrame(const uint8_t *frame, size_t size) {
         armed = true;
       }
       updateState();
-      sendTelemetry(sequence);
+      sendTelemetry(sequence, viaBle);
       break;
 
     case TYPE_ESTOP:
@@ -246,7 +281,7 @@ void handleFrame(const uint8_t *frame, size_t size) {
       armed = false;
       stopMotors();
       updateState();
-      sendTelemetry(sequence);
+      sendTelemetry(sequence, viaBle);
       break;
 
     case TYPE_HEARTBEAT:
@@ -255,7 +290,7 @@ void handleFrame(const uint8_t *frame, size_t size) {
         ++droppedFrames;
         return;
       }
-      sendTelemetry(sequence);
+      sendTelemetry(sequence, viaBle);
       break;
 
     default:
@@ -263,6 +298,31 @@ void handleFrame(const uint8_t *frame, size_t size) {
       break;
   }
 }
+
+#if ESP_ARDUINO_VERSION_MAJOR >= 4
+void onBleControlWrite(BLECharacteristic &characteristic, const BLEConnInfo &) {
+  size_t length = 0;
+  const uint8_t *value = characteristic.getValue(&length);
+  if (value != nullptr && length > 0) {
+    handleFrame(value, length, true);
+  }
+}
+#else
+class BleControlCallbacks final : public BLECharacteristicCallbacks {
+  void onWrite(BLECharacteristic *characteristic) override {
+    const std::string value = characteristic->getValue();
+    if (!value.empty()) {
+      handleFrame(reinterpret_cast<const uint8_t *>(value.data()), value.size(), true);
+    }
+  }
+};
+
+class BleServerCallbacks final : public BLEServerCallbacks {
+  void onDisconnect(BLEServer *) override {
+    BLEDevice::startAdvertising();
+  }
+};
+#endif
 
 void setup() {
   // Set outputs to zero as early as possible. GPIO14 is a boot-strapping pin
@@ -290,9 +350,79 @@ void setup() {
     return;
   }
   udp.begin(UDP_PORT);
+
+#if ESP_ARDUINO_VERSION_MAJOR >= 4
+  const BTStatus bleInitStatus = BLE.begin(BLE_DEVICE_NAME);
+  if (!bleInitStatus) {
+    Serial.printf("BLE init failed: %s\n", bleInitStatus.toString());
+    return;
+  }
+  BLEServer bleServer = BLE.createServer();
+  if (!bleServer) {
+    Serial.println("BLE server creation failed");
+    return;
+  }
+  bleServer.onDisconnect([](BLEServer &, const BLEConnInfo &, uint8_t) {
+    Serial.println("BLE client disconnected; restarting advertising");
+    BLE.startAdvertising();
+  });
+  bleServer.onConnect([](BLEServer &, const BLEConnInfo &) {
+    Serial.println("BLE client connected");
+  });
+  BLEService bleService = bleServer.createService(BLEUUID(BLE_SERVICE_UUID));
+  BLECharacteristic bleControlCharacteristic = bleService.createCharacteristic(
+      BLEUUID(BLE_CONTROL_UUID), BLEProperty::Write | BLEProperty::WriteNR,
+      BLEPermission::WriteOpen);
+  bleControlCharacteristic.onWrite(onBleControlWrite);
+  bleTelemetryCharacteristic = bleService.createCharacteristic(
+      BLEUUID(BLE_TELEMETRY_UUID), BLEProperty::Notify, BLEPermission::None);
+  if (!bleService || !bleControlCharacteristic || !bleTelemetryCharacteristic) {
+    Serial.println("BLE GATT service/characteristic creation failed");
+    return;
+  }
+  const BTStatus gattStartStatus = bleServer.start();
+  if (!gattStartStatus) {
+    Serial.printf("BLE GATT start failed: %s\n", gattStartStatus.toString());
+    return;
+  }
+
+  BLEAdvertising advertising = BLE.getAdvertising();
+  if (!advertising) {
+    Serial.println("BLE advertising handle unavailable");
+    return;
+  }
+  advertising.setName(BLE_DEVICE_NAME);
+  advertising.addServiceUUID(BLEUUID(BLE_SERVICE_UUID));
+  advertising.setScanResponse(true);
+  const BTStatus advertisingStatus = advertising.start();
+  if (!advertisingStatus) {
+    Serial.printf("BLE advertising failed: %s\n", advertisingStatus.toString());
+    return;
+  }
+#else
+  BLEDevice::init(BLE_DEVICE_NAME);
+  BLEServer *bleServer = BLEDevice::createServer();
+  bleServer->setCallbacks(new BleServerCallbacks());
+  BLEService *bleService = bleServer->createService(BLE_SERVICE_UUID);
+  BLECharacteristic *bleControlCharacteristic = bleService->createCharacteristic(
+      BLE_CONTROL_UUID,
+      BLECharacteristic::PROPERTY_WRITE | BLECharacteristic::PROPERTY_WRITE_NR);
+  bleControlCharacteristic->setCallbacks(new BleControlCallbacks());
+  bleTelemetryCharacteristic = bleService->createCharacteristic(
+      BLE_TELEMETRY_UUID, BLECharacteristic::PROPERTY_NOTIFY);
+  bleTelemetryCharacteristic->addDescriptor(new BLE2902());
+  bleService->start();
+
+  BLEAdvertising *advertising = BLEDevice::getAdvertising();
+  advertising->addServiceUUID(BLE_SERVICE_UUID);
+  advertising->setScanResponse(true);
+  advertising->start();
+#endif
+
   robotState = STATE_DISARMED;
   Serial.printf("AP IP: %s\n", WiFi.softAPIP().toString().c_str());
   Serial.printf("RoboRace receiver ready: DISARMED, UDP %u\n", UDP_PORT);
+  Serial.printf("BLE ready: %s\n", BLE_DEVICE_NAME);
 }
 
 void loop() {

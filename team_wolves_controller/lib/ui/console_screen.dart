@@ -399,13 +399,6 @@ class _CenterPanel extends StatelessWidget {
         _TerrainRow(controller: c),
         const SizedBox(height: 4),
         _ArmSwitch(controller: c),
-        const SizedBox(height: 4),
-        Expanded(
-          child: EmergencyStopButton(
-            onPressed: c.triggerEStop,
-            latched: c.estopLatched,
-          ),
-        ),
       ],
     );
   }

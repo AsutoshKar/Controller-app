@@ -1,6 +1,8 @@
 import 'dart:async';
 import 'dart:typed_data';
 
+import 'package:flutter/foundation.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_blue_plus/flutter_blue_plus.dart';
 
 import '../protocol/protocol.dart';
@@ -39,6 +41,22 @@ class BleScanHit {
 ///     dropped rather than letting memory grow.
 class BleTransport extends RobotTransport {
   BleTransport();
+
+  static const MethodChannel _permissionChannel =
+      MethodChannel('com.teamwolves.wolvebot/ble_permissions');
+
+  static Future<void> _ensureBlePermissions() async {
+    if (defaultTargetPlatform != TargetPlatform.android) {
+      return;
+    }
+    final bool granted =
+        await _permissionChannel.invokeMethod<bool>('requestBlePermissions') ?? false;
+    if (!granted) {
+      throw const BleTransportException(
+        'BLUETOOTH PERMISSION DENIED - ALLOW NEARBY DEVICES IN SETTINGS',
+      );
+    }
+  }
 
   static const String controlServiceUuid = '0000abcd-0000-1000-8000-00805f9b34fb';
   static const String controlCharacteristicUuid = '0000ab01-0000-1000-8000-00805f9b34fb';
@@ -83,7 +101,7 @@ class BleTransport extends RobotTransport {
     final BluetoothDevice? device = _device;
     final String name = (device?.platformName ?? '').isNotEmpty
         ? device!.platformName
-        : 'ROBORACE_ESP32';
+        : 'ROBO_BOT';
     return 'BLE $name';
   }
 
@@ -100,7 +118,9 @@ class BleTransport extends RobotTransport {
   static List<BleScanHit> _mapScanResults(List<ScanResult> results) {
     final List<BleScanHit> hits = <BleScanHit>[];
     for (final ScanResult result in results) {
-      final String name = result.device.platformName;
+      final String name = result.device.platformName.isNotEmpty
+          ? result.device.platformName
+          : result.advertisementData.advName;
       final bool hasService = result.advertisementData.serviceUuids
           .any((Guid uuid) => uuid.str.toLowerCase() == controlServiceUuid);
       final bool namedLikeRobot = name.toUpperCase().contains('ROBO');
@@ -140,6 +160,7 @@ class BleTransport extends RobotTransport {
     if (_disposed) {
       return;
     }
+    await _ensureBlePermissions();
     await stopScan();
     await FlutterBluePlus.startScan(timeout: timeout);
   }
@@ -198,6 +219,7 @@ class BleTransport extends RobotTransport {
     });
 
     try {
+      await _ensureBlePermissions();
       await device.connect(timeout: const Duration(seconds: 10));
       if (epoch != _epoch || _disposed) {
         await device.disconnect(queue: false);
@@ -306,7 +328,8 @@ class BleTransport extends RobotTransport {
 
   static String _describeError(Object error) {
     final String text = error.toString();
-    if (text.contains('permission') || text.contains('Permission') || text.contains('unauthorized')) {
+    final String normalized = text.toLowerCase();
+    if (normalized.contains('permission') || normalized.contains('unauthorized')) {
       return 'BLE PERMISSION DENIED - ALLOW BLUETOOTH IN SETTINGS';
     }
     if (text.contains('timed out') || text.contains('timeout')) {

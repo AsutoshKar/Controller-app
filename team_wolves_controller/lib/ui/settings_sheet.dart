@@ -224,6 +224,16 @@ class SettingsSheet extends StatelessWidget {
                           height: 1.35,
                         ),
                       ),
+                      const SizedBox(height: 12),
+                      const SectionLabel('EMERGENCY STOP', color: TacticalColors.red),
+                      const SizedBox(height: 6),
+                      SizedBox(
+                        height: 96,
+                        child: EmergencyStopButton(
+                          onPressed: c.triggerEStop,
+                          latched: c.estopLatched,
+                        ),
+                      ),
                       const SizedBox(height: 14),
                     ],
                   ),
